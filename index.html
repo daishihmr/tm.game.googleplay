@@ -2,8 +2,164 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+
+<!-- <meta name="google-signin-clientid" content="257317887375-ad4ja6ant0ml0ua8i0jdm1h4k8bhr8ef.apps.googleusercontent.com" /> -->
+<meta name="google-signin-clientid" content="257317887375-p0f05nkannrqlbs3rtn2j1pk2do4qslk.apps.googleusercontent.com" />
+
+<meta name="google-signin-cookiepolicy" content="single_host_origin" />
+<meta name="google-signin-callback" content="signinCallback" />
+<meta name="google-signin-requestvisibleactions" content="https://schema.org/AddAction" />
+<meta name="google-signin-scope" content="https://www.googleapis.com/auth/plus.login https://www.googleapis.com/auth/games" />
+
 </head>
 <body>
+
+<div id="signinButton" style="visibility:hidden">
+    <span
+        class="g-signin"
+        data-callback="signinCallback"
+        data-clientid="257317887375-p0f05nkannrqlbs3rtn2j1pk2do4qslk.apps.googleusercontent.com"
+        data-cookiepolicy="single_host_origin"
+        data-requestvisibleactions="http://schemas.google.com/AddActivity"
+        data-scope="https://www.googleapis.com/auth/plus.login">
+    </span>
+</div>
+
+<script>
+var connectedGame = false;
+var signinCallback = function(auth) {
+    if (auth && auth.error == null) {
+        
+        document.getElementById("signinButton").style.visibility = "hidden";
+
+        gapi.client.load("games", "v1", function(response) {
+            connectedGame = true;
+        });
+
+    } else {
+        document.getElementById("signinButton").style.visibility = "visible";
+        connectedGame = false;
+    }
+};
+</script>
+<script src="https://apis.google.com/js/client:platform.js" async defer></script>
+<script src="https://apis.google.com/js/client.js"></script>
+<script src="tmlib.js"></script>
+
+<script>
+var LEADERBOARDS = {
+    "A-S": "CgkIj7vdyr4HEAIQAQ",
+    "A-L": "CgkIj7vdyr4HEAIQAg",
+    "A-EX": "CgkIj7vdyr4HEAIQBA",
+    "A-BG": "CgkIj7vdyr4HEAIQBQ",
+    "B-S": "CgkIj7vdyr4HEAIQBg",
+    "B-L": "CgkIj7vdyr4HEAIQBw",
+    "B-EX": "CgkIj7vdyr4HEAIQCA",
+    "B-BG": "CgkIj7vdyr4HEAIQDQ",
+    "C-S": "CgkIj7vdyr4HEAIQCQ",
+    "C-L": "CgkIj7vdyr4HEAIQCg",
+    "C-EX": "CgkIj7vdyr4HEAIQCw",
+    "C-BG": "CgkIj7vdyr4HEAIQDA",
+};
+var ACHIEVEMENTS = {
+    launch0: "CgkIj7vdyr4HEAIQDg",
+    launch1: "CgkIj7vdyr4HEAIQDw",
+    launch2: "CgkIj7vdyr4HEAIQEA",
+    bomb1: "CgkIj7vdyr4HEAIQEQ",
+    bomb2: "CgkIj7vdyr4HEAIQEg",
+    hyper1: "CgkIj7vdyr4HEAIQEw",
+    hyper10: "CgkIj7vdyr4HEAIQFA",
+    score100M: "CgkIj7vdyr4HEAIQFQ",
+    score2G: "CgkIj7vdyr4HEAIQFg",
+    score20G: "CgkIj7vdyr4HEAIQFw",
+    score50G: "CgkIj7vdyr4HEAIQGA",
+    score100G: "CgkIj7vdyr4HEAIQGQ",
+    score1T: "CgkIj7vdyr4HEAIQGg",
+    combo100: "CgkIj7vdyr4HEAIQHA",
+    combo1000: "CgkIj7vdyr4HEAIQHQ",
+    combo10000: "CgkIj7vdyr4HEAIQHg",
+    combo100000: "CgkIj7vdyr4HEAIQHw",
+    extend1: "CgkIj7vdyr4HEAIQIA",
+    extend2: "CgkIj7vdyr4HEAIQIQ",
+    extend3: "CgkIj7vdyr4HEAIQIg",
+    nomiss1: "CgkIj7vdyr4HEAIQIw",
+    nomiss2: "CgkIj7vdyr4HEAIQJA",
+    nomiss3: "CgkIj7vdyr4HEAIQJQ",
+    nomiss4: "CgkIj7vdyr4HEAIQJg",
+    nomiss5: "CgkIj7vdyr4HEAIQJw",
+    mboss1: "CgkIj7vdyr4HEAIQKA",
+    mboss2: "CgkIj7vdyr4HEAIQKQ",
+    mboss3: "CgkIj7vdyr4HEAIQKg",
+    mboss4: "CgkIj7vdyr4HEAIQKw",
+    mboss5: "CgkIj7vdyr4HEAIQLA",
+    boss1: "CgkIj7vdyr4HEAIQLQ",
+    boss2: "CgkIj7vdyr4HEAIQLg",
+    boss3: "CgkIj7vdyr4HEAIQLw",
+    boss4: "CgkIj7vdyr4HEAIQMA",
+    boss5: "CgkIj7vdyr4HEAIQMQ",
+    allclear0: "CgkIj7vdyr4HEAIQMg",
+    allclear1: "CgkIj7vdyr4HEAIQMw",
+    allclear2: "CgkIj7vdyr4HEAIQNA",
+    aura300: "CgkIj7vdyr4HEAIQNQ",
+    hyperAndHyper: "CgkIj7vdyr4HEAIQNg",
+    nicebomb: "CgkIj7vdyr4HEAIQNw",
+    nohyper: "CgkIj7vdyr4HEAIQOA",
+    nobomb: "CgkIj7vdyr4HEAIQOQ",
+    kill100: "CgkIj7vdyr4HEAIQOg",
+    kill40: "CgkIj7vdyr4HEAIQOw",
+    manpower: "CgkIj7vdyr4HEAIQPA",
+};
+
+var COLLECTIONS = {
+    "public": "PUBLIC",
+    "social": "SOCIAL",
+};
+var TIME_SPANS = {
+    "all_time": "ALL_TIME",
+    "daily": "DAILY",
+    "weekly": "WEEKLY",
+};
+var loadScoreList = function(typeStyle, collection, timeSpan, callback) {
+    var request = gapi.client.games.scores.list({
+        leaderboardId: LEADERBOARDS[typeStyle],
+        collection: COLLECTIONS[collection],
+        timeSpan: TIME_SPANS[timeSpan],
+    });
+    request.execute(function(response) {
+        if (response.error) {
+            callback(response.error);
+        } else {
+            callback(null, response.items);
+        }
+    });
+};
+
+var loadAchievementList = function(callback) {
+    var request = gapi.client.games.achievements.list({
+        playerId: "me",
+    });
+    request.execute(function(response) {
+        if (response.error) {
+            callback(response.error);
+        } else {
+            callback(null, response.items);
+        }
+    })
+};
+
+var unlockAchievement = function(achievementName, callback) {
+    var request = gapi.client.games.achievements.unlock({
+        achievementId: ACHIEVEMENTS[achievementName],
+    });
+    request.execute(function(response) {
+        if (response.error) {
+            callback(response.error);
+        } else if (response.newlyUnlocked) {
+            callback();
+        }
+    });
+};
+</script>
 
 </body>
 </html>
