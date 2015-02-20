@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
 </head>
 
 <body>
@@ -21,6 +22,9 @@
     var signinButton;
 
     tm.main(function() {
+
+        tm.display.Label.default.fontFamily = 'Lato';
+
 
         signinButton = tm.google.SigninButton("#signinButton", {
             clientid: gpgsConstants.CLIENT_ID

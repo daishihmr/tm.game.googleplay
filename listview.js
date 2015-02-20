@@ -146,7 +146,7 @@
     });
 
     tm.define("tm.ui.SimpleListViewItem", {
-        superClass: "tm.display.CanvasElement",
+        superClass: "tm.ui.ListViewItem",
 
         init: function(width, height, text) {
             this.superInit(width, height);
