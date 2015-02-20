@@ -39,8 +39,9 @@
         _signinCallback: function(auth) {
             if (auth && auth.error == null) {
                 this.visible = false;
-                gapi.client.load("games", "v1");
-                this.signedIn = true;
+                gapi.client.load("games", "v1", function() {
+                    this.signedIn = true;
+                }.bind(this));
             } else if (auth.error === "user_signed_out") {
                 this.signedIn = false;
             } else {
