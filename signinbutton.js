@@ -5,35 +5,26 @@
 (function() {
 
     tm.define("tm.google.SigninButton", {
-        superClass: "tm.event.EventDispatcher",
+        superClass: "tm.dom.Element",
 
-        /**
-         * Google APIs Console から取得済みの OAuth 2.0 クライアント ID.
-         * https://code.google.com/apis/console#access
-         */
-        clientId: null,
+        init: function(q, param) {
+            var self = this;
+            this.superInit(q);
 
-        init: function(element, param) {
-            this.superInit();
+            this.signedIn = false;
 
-            this.signinButton = tm.dom.Element(element)
-
-            param = {}.$extend(tm.google.SigninButton.PARAM_DEFAULT, param);
-
-            this.clientId = param.clientid;
-
-            var button = this.signinButton.create("span");
-            button.attr.set("class", "g-signin");
-            button.data.set("callback", tm.google.SigninButton.SIGNIN_CALLBACK_NAME);
-            for (var key in param) {
-                if (param.hasOwnProperty(key)) {
-                    button.data.set(key, param[key]);
-                }
-            }
+            this.param = {}.$extend(tm.google.SigninButton.PARAM_DEFAULT, param);
 
             if (!tm.global[tm.google.SigninButton.SIGNIN_CALLBACK_NAME]) {
                 tm.global[tm.google.SigninButton.SIGNIN_CALLBACK_NAME] = this._signinCallback.bind(this);
                 tm.util.Script.load("https://apis.google.com/js/client:platform.js");
+                setTimeout(function() {
+                    if (tm.global["gapi"] && gapi.signin) {
+                        gapi.signin.render(self.element, self.param);
+                    } else {
+                        setTimeout(arguments.callee, 10);
+                    }
+                }, 10);
             }
         },
 
@@ -41,16 +32,19 @@
             gapi.auth.signOut();
         },
 
+        isSignedIn: function() {
+            return this.signedIn;
+        },
+
         _signinCallback: function(auth) {
             if (auth && auth.error == null) {
-                this.signinButton.visible = false;
-                this.flare("signin", {
-                    auth: auth,
-                });
+                this.visible = false;
+                gapi.client.load("games", "v1");
+                this.signedIn = true;
+            } else if (auth.error === "user_signed_out") {
+                this.signedIn = false;
             } else {
-                this.flare("signout", {
-                    auth: auth,
-                });
+                this.signedIn = false;
             }
         },
     });
@@ -59,8 +53,9 @@
 
     tm.google.SigninButton.PARAM_DEFAULT = {
         clientid: null,
+        callback: tm.google.SigninButton.SIGNIN_CALLBACK_NAME,
         cookiepolicy: "single_host_origin",
-        scope: "https://www.googleapis.com/auth/plus.login",
+        scope: "https://www.googleapis.com/auth/games",
         width: "wide",
         height: "short",
         theme: "light",

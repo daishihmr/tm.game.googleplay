@@ -1,16 +1,25 @@
 (function() {
 
+    var ITEM_DEFAULT_TEXTURE = null;
+    tm.main(function() {
+        ITEM_DEFAULT_TEXTURE = tm.graphics.Canvas()
+            .resize(512, 512)
+            .setStrokeStyle("hsl(180, 60%, 50%)")
+            .setLineStyle(10)
+            .strokeCircle(256, 256, 160);
+    });
+
     tm.define("tm.google.LeaderboardScene", {
         superClass: "tm.app.Scene",
         init: function(param) {
-            var scene = this;
-            this.superInit();
+            var self = this;
+            self.superInit();
 
-            this.param = param = {}.$extend(tm.google.LeaderboardScene.DEFAULT_PAEAM, param);
+            self.param = param = {}.$extend(tm.google.LeaderboardScene.DEFAULT_PARAM, param);
 
-            this.applicationId = param.applicationId;
+            self.applicationId = param.applicationId;
 
-            this.fromJSON({
+            self.fromJSON({
                 children: {
                     bg: {
                         type: "tm.display.RectangleShape",
@@ -18,7 +27,7 @@
                             width: param.width,
                             height: param.height,
                             strokeStyle: "transparent",
-                            fillStyle: param.bgColor,
+                            fillStyle: param.backgroundColor,
                         },
                         originX: 0,
                         originY: 0,
@@ -30,6 +39,8 @@
                             height: 100,
                             strokeStyle: "transparent",
                             fillStyle: "white",
+                            shadowColor: "black",
+                            shadowBlur: 5,
                         },
                         originX: 0,
                         y: 50
@@ -53,143 +64,137 @@
                         x: param.width - 32,
                         y: 25,
                         onpush: function() {
-                            scene.app.popScene();
+                            self.app.popScene();
                         },
                     },
-                    buttonAreal: {
+                    buttons: {
                         type: "tm.display.CanvasElement",
                         y: 75,
                         children: {
                             leaderboardButton: {
-                                type: "tm.ui.FlatButton",
+                                type: "tm.google.LeaderboardScene.RadioButton",
                                 init: {
                                     text: "Leaderboard",
                                     width: 130,
                                     height: 32,
                                     fontSize: 18,
-                                    fillStyle: "hsl(180, 60%, 50%)",
-                                    strokeStyle: "hsl(180, 60%, 50%)",
-                                    textColor: "white",
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
                                 },
                                 x: param.width * 0.5 - 70,
                             },
                             achievementButton: {
-                                type: "tm.ui.FlatButton",
+                                type: "tm.google.LeaderboardScene.RadioButton",
                                 init: {
                                     text: "達成項目",
                                     width: 130,
                                     height: 32,
                                     fontSize: 18,
-                                    fillStyle: "white",
-                                    strokeStyle: "hsl(180, 60%, 50%)",
-                                    textColor: "hsl(180, 60%, 50%)",
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
                                 },
                                 x: param.width * 0.5 + 70,
-                                onpush: function() {
-                                    console.log("ok");
-                                },
+                                onpush: function() {},
                             },
                         },
                     },
-                    scrollArea: {
-                        type: "tm.display.CanvasElement",
-                        originY: 0,
-                        width: param.width,
-                        height: param.height - 100,
-                        clipping: true,
+
+                    listView: {
+                        type: "tm.ui.ListView",
                         x: param.width * 0.5,
                         y: 100,
-                        checkHierarchy: true,
-                        interactive: true,
-                        boundingType: "rect",
-                        children: {
-                            inner: {
-                                type: "tm.display.CanvasElement",
-                                originY: 0,
-                                children: {
-                                    leaderboardCount: {
-                                        type: "tm.display.Label",
-                                        init: ["Leaderboard: ?件", 22],
-                                        align: "left",
-                                        originY: 0,
-                                        x: param.width * -0.5 + 20,
-                                        y: 20,
-                                        fillStyle: "black",
-                                        fontWeight: "bold",
-                                    },
-                                },
-                            },
+                        width: param.width,
+                        height: param.height - 100,
+                        getView: function(item, view) {
+                            if (view) {
+                                return view.setItem(item);
+                            } else if (item.kind === "games#leaderboard") {
+                                return tm.google.LeaderboardScene.Item(400, 80, item);
+                            } else {
+                                return tm.ui.SimpleListViewItem(400, 40, item);
+                            }
+                        },
+                        onItemClick: function(item, view) {
+                            self.app.pushScene(tm.google.RankingScene(item, param));
                         },
                     },
                 },
             });
 
-            this.scrollArea.on("pointingmove", function(e) {
-                this.inner.y += e.app.pointing.deltaPosition.y;
-            });
+            this.buttons.leaderboardButton.selected = true;
+            this.buttons.achievementButton.selected = false;
 
-            this._getGameData();
-            this._getLeaderboardData();
+            Promise.all([
+                self._getGameData(),
+                self._getLeaderboardData(),
+            ]).then(function() {
+                self.listView.updateItems();
+            });
         },
 
         _getGameData: function() {
-            var req = gapi.client.games.applications.get({
-                applicationId: this.applicationId,
-                language: "ja",
+            var self = this;
+
+            return new Promise(function(resolve, reject) {
+
+                var req = gapi.client.games.applications.get({
+                    applicationId: self.applicationId,
+                    language: "ja",
+                });
+                req.execute(function(res) {
+                    if (!res.error) {
+                        self.title.text = res.name;
+                        self.listView.items.push("Leaderboard: {0}件".format(res.leaderboard_count));
+
+                        resolve();
+                    } else {
+                        reject(res.error);
+                    }
+                });
+
             });
-            req.execute(function(res) {
-                if (!res.error) {
-                    console.log(res);
-                    this.title.text = res.name;
-                    this.scrollArea.inner.leaderboardCount.text = "Leaderboard: {0}件".format(res.leaderboard_count);
-                }
-            }.bind(this));
         },
 
         _getLeaderboardData: function() {
-            var scene = this;
+            var self = this;
 
-            var req = gapi.client.games.leaderboards.list({
-                language: "ja",
-            });
-            req.execute(function(res) {
-                if (!res.error) {
-                    res.items.forEach(function(leaderboard, i) {
-                        scene.addItem(leaderboard, i);
-                    });
-                }
-            });
-        },
+            return new Promise(function(resolve, reject) {
 
-        addItem: function(leaderboard, i) {
-            var scene = this;
-            tm.google.LeaderboardScene.Item(400, 80, leaderboard, this.param)
-                .setPosition(0, 80 + i * 80)
-                .addChildTo(scene.scrollArea.inner);
+                var req = gapi.client.games.leaderboards.list({
+                    language: "ja",
+                });
+                req.execute(function(res) {
+                    if (!res.error) {
+                        res.items.forEach(function(leaderboard) {
+                            self.listView.items.push(leaderboard);
+                        });
+                        self.listView.updateItems();
+
+                        resolve();
+                    } else {
+                        reject(res.error);
+                    }
+                });
+
+            });
         },
     });
 
-    tm.google.LeaderboardScene.DEFAULT_PAEAM = {
-        message: "",
-        fontSize: 72,
-        fontColor: "#444",
+    tm.google.LeaderboardScene.DEFAULT_PARAM = {
+        applicationId: null,
         width: 640,
         height: 960,
-        bgColor: "rgba(240, 240, 240, 0.95)",
+        backgroundColor: "rgba(240, 240, 240, 0.95)",
+        foregroundColor: "hsl(180, 60%, 50%)",
     };
 
     tm.define("tm.google.LeaderboardScene.Item", {
-        superClass: "tm.display.CanvasElement",
+        superClass: "tm.ui.ListViewItem",
 
-        init: function(width, height, leaderboard, sceneParam) {
+        init: function(width, height, leaderboard) {
             var self = this;
-            this.superInit();
+            this.superInit(width, height);
             this.fromJSON({
-                width: width,
-                height: height,
-                interactive: true,
-                checkHierarchy: true,
-                boundingType: "rect",
                 children: {
                     circle: {
                         type: "tm.display.RoundRectangleShape",
@@ -204,13 +209,13 @@
                     },
                     icon: {
                         type: "tm.display.Sprite",
-                        init: [tm.google.LeaderboardScene.Item.DEFAULT_TEXTURE, 60, 60],
+                        init: [ITEM_DEFAULT_TEXTURE, 60, 60],
                         x: -width * 0.5 + 40,
                         y: 0,
                     },
                     title: {
                         type: "tm.display.Label",
-                        init: [leaderboard.name, 24],
+                        init: ["loading...", 24],
                         fillStyle: "rgb(20, 20, 20)",
                         align: "left",
                         fontWeight: "bold",
@@ -220,48 +225,30 @@
                 },
             });
 
-            if (leaderboard.iconUrl) {
-                tm.asset.Texture(leaderboard.iconUrl)
+            this.setItem(leaderboard);
+        },
+
+        setItem: function(item) {
+            var self = this;
+            self.title.text = item.name;
+            if (item.iconUrl) {
+                tm.asset.Texture(item.iconUrl)
                     .on("load", function() {
                         self.icon.image = this;
                     });
             }
-
-            this.on("pointingstart", function(e) {
-                this.initialY = e.pointing.y;
-                this.drag = false;
-            });
-            this.on("pointingmove", function(e) {
-                if (5 < Math.abs(this.initialY - e.pointing.y)) {
-                    this.drag = true;
-                }
-            });
-            this.on("pointingend", function(e) {
-                var scrollArea = this.parent.parent;
-                if (!this.drag && scrollArea.isHitPoint(e.pointing.x, e.pointing.y)) {
-                    e.app.pushScene(tm.google.RankingScene(leaderboard, sceneParam));
-                }
-            });
+            return tm.ui.ListViewItem.prototype.setItem.call(self, item);
         },
-    });
-
-    tm.google.LeaderboardScene.Item.DEFAULT_TEXTURE = null;
-    tm.main(function() {
-        tm.google.LeaderboardScene.Item.DEFAULT_TEXTURE = tm.graphics.Canvas()
-            .resize(512, 512)
-            .setStrokeStyle("hsl(180, 60%, 50%)")
-            .setLineStyle(10)
-            .strokeCircle(256, 256, 160);
     });
 
     tm.define("tm.google.RankingScene", {
         superClass: "tm.app.Scene",
 
         init: function(leaderboard, param) {
-            console.log(leaderboard.id);
+            console.log("ranking scene id = " + leaderboard.id);
             var self = this;
-            this.superInit();
-            this.fromJSON({
+            self.superInit();
+            self.fromJSON({
                 leaderboard: leaderboard,
                 param: param,
                 children: {
@@ -271,7 +258,7 @@
                             width: param.width,
                             height: param.height,
                             strokeStyle: "transparent",
-                            fillStyle: param.bgColor,
+                            fillStyle: param.backgroundColor,
                         },
                         originX: 0,
                         originY: 0,
@@ -280,12 +267,14 @@
                         type: "tm.display.RectangleShape",
                         init: {
                             width: param.width,
-                            height: 50,
+                            height: 150,
                             strokeStyle: "transparent",
                             fillStyle: "white",
+                            shadowColor: "black",
+                            shadowBlur: 5,
                         },
-                        originX: 0,
-                        y: 25
+                        x: param.width * 0.5,
+                        y: 150 * 0.5,
                     },
                     title: {
                         type: "tm.display.Label",
@@ -325,155 +314,192 @@
                             app.popScene();
                         },
                     },
-                    scrollArea: {
-                        type: "tm.display.CanvasElement",
-                        originY: 0,
-                        width: param.width,
-                        height: param.height - 50,
-                        clipping: true,
-                        x: param.width * 0.5,
-                        y: 50,
-                        checkHierarchy: true,
-                        interactive: true,
-                        boundingType: "rect",
+
+                    timeSpanButtons: {
+                        type: "tm.google.LeaderboardScene.RadioButtonGroup",
+                        y: 75,
+                        onchange: function() {
+                            self.loadData();
+                        },
                         children: {
-                            inner: {
-                                type: "tm.display.CanvasElement",
-                                originY: 0,
-                                lastElementY: 20,
+                            allTimeButton: {
+                                type: "tm.google.LeaderboardScene.RadioButton",
+                                init: {
+                                    text: "すべての時間",
+                                    width: 130,
+                                    height: 32,
+                                    fontSize: 18,
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
+                                },
+                                x: param.width * 0.5 - 140,
+                            },
+                            dailyButton: {
+                                type: "tm.google.LeaderboardScene.RadioButton",
+                                init: {
+                                    text: "今日",
+                                    width: 130,
+                                    height: 32,
+                                    fontSize: 18,
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
+                                },
+                                x: param.width * 0.5,
+                            },
+                            weeklyButton: {
+                                type: "tm.google.LeaderboardScene.RadioButton",
+                                init: {
+                                    text: "今週",
+                                    width: 130,
+                                    height: 32,
+                                    fontSize: 18,
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
+                                },
+                                x: param.width * 0.5 + 140,
+                                onpush: function() {},
                             },
                         },
+                    },
+
+                    windowButtons: {
+                        type: "tm.google.LeaderboardScene.RadioButtonGroup",
+                        y: 125,
+                        onchange: function() {
+                            self.loadData();
+                        },
+                        children: {
+                            me: {
+                                type: "tm.google.LeaderboardScene.RadioButton",
+                                init: {
+                                    text: "自分のスコア",
+                                    width: 130,
+                                    height: 32,
+                                    fontSize: 18,
+                                    fillStyle: "hsl(180, 60%, 50%)",
+                                    strokeStyle: "hsl(180, 60%, 50%)",
+                                    textColor: "white",
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
+                                },
+                                x: param.width * 0.5 - 70,
+                            },
+                            top: {
+                                type: "tm.google.LeaderboardScene.RadioButton",
+                                init: {
+                                    text: "トップスコア",
+                                    width: 130,
+                                    height: 32,
+                                    fontSize: 18,
+                                    fillStyle: "white",
+                                    strokeStyle: "hsl(180, 60%, 50%)",
+                                    textColor: "hsl(180, 60%, 50%)",
+                                    backgroundColor: "white",
+                                    foregroundColor: param.foregroundColor,
+                                },
+                                x: param.width * 0.5 + 70,
+                            },
+                        },
+                    },
+
+                    listView: {
+                        type: "tm.ui.ListView",
+                        width: param.width,
+                        height: param.height - 150,
+                        x: param.width * 0.5,
+                        y: 150,
+                        getView: function(item, view) {
+                            if (view) {
+                                return view.setItem(item);
+                            } else if (item.kind === "games#leaderboardEntry") {
+                                return tm.google.RankingScene.Item(400, 80, item);
+                            } else if (item.kind === "next") {
+                                return tm.ui.SimpleListViewItem(400, 40, item.text).setTextColor(item.textColor);
+                            } else if (typeof(item) === "string") {
+                                return tm.ui.SimpleListViewItem(400, 40, item);
+                            }
+                        },
+                        onItemClick: function(item) {},
                     },
                 },
             });
 
-            this.scrollArea.on("pointingmove", function(e) {
-                this.inner.y += e.app.pointing.deltaPosition.y;
-            });
+            self.timeSpanButtons.selected = 0;
+            self.windowButtons.selected = 0;
 
-            this._getData(leaderboard);
+            self.loadData();
         },
 
-        _getData: function(leaderboard) {
+        loadData: function() {
             var self = this;
 
-            var reqSocial = gapi.client.games.scores.listWindow({
-                playerId: "me",
-                leaderboardId: leaderboard.id,
-                collection: "social",
-                timeSpan: "all_time",
-                maxResults: 20,
-            });
-            var reqPublic = gapi.client.games.scores.list({
-                leaderboardId: leaderboard.id,
-                collection: "public",
-                timeSpan: "all_time",
-                maxResults: 20,
-            });
+            self.listView.items.clear();
+            self.listView.updateItems();
 
-            reqSocial.execute(function(res) {
-                console.log(res);
-                if (!res.error) {
-                    self._buildSocialList(res);
-                    reqPublic.execute(function(res) {
-                        console.log(res);
-                        if (!res.error) {
-                            self._buildPublicList(res)
+            var promise =  new Promise(function(resolve, reject) {
+
+                var method = ["listWindow", "list"][self.windowButtons.selected];
+
+                var req = gapi.client.games.scores[method]({
+                    leaderboardId: self.leaderboard.id,
+                    collection: "public",
+                    timeSpan: ["all_time", "daily", "weekly"][self.timeSpanButtons.selected],
+                    maxResults: 20,
+                });
+                req.execute(function(res) {
+                    if (!res.error) {
+                        self.listView.items.push("全プレイヤー：{0}人".format(res.numScores));
+                        if (res.items && res.items.length) {
+                            res.items.forEach(function(item) {
+                                self.listView.items.push(item);
+                            });
+
+                            self.listView.items.push({
+                                kind: "next",
+                                text: "さらに表示…",
+                                textColor: self.param.foregroundColor,
+                            });
                         }
-                    });
-                }
+                        resolve();
+                    } else {
+                        reject(res.error);
+                    }
+                });
+
+            });
+
+            promise.then(function() {
+                self.listView.updateItems();
             });
         },
-
-        _buildSocialList: function(scores) {
-            var self = this;
-
-            tm.display.Label("友達:{0}人".format(scores.numScores), 22)
-                .setFillStyle("black")
-                .setAlign("left")
-                .setPosition(self.param.width * -0.5 + 20, self.scrollArea.inner.lastElementY)
-                .setFontWeight("bold")
-                .addChildTo(self.scrollArea.inner);
-
-            self.scrollArea.inner.lastElementY += 50;
-
-            if (scores.items) {
-                scores.items.forEach(function(score, i) {
-                    tm.google.RankingScene.Item(400, 80, score, this.param)
-                        .setPosition(0, self.scrollArea.inner.lastElementY)
-                        .addChildTo(self.scrollArea.inner);
-                    self.scrollArea.inner.lastElementY += 80;
-                });
-            }
-        },
-
-        _buildPublicList: function(scores) {
-            var self = this;
-
-            self.scrollArea.inner.lastElementY -= 20;
-
-            tm.display.Label("全プレイヤー:{0}人".format(scores.numScores), 22)
-                .setFillStyle("black")
-                .setAlign("left")
-                .setPosition(self.param.width * -0.5 + 20, self.scrollArea.inner.lastElementY)
-                .setFontWeight("bold")
-                .addChildTo(self.scrollArea.inner);
-
-            self.scrollArea.inner.lastElementY += 50;
-
-            if (scores.items) {
-                scores.items.forEach(function(score, i) {
-                    tm.google.RankingScene.Item(400, 80, score, this.param)
-                        .setPosition(0, self.scrollArea.inner.lastElementY)
-                        .addChildTo(self.scrollArea.inner);
-                    self.scrollArea.inner.lastElementY += 80;
-                });
-            }
-        },
-
     });
 
     tm.define("tm.google.RankingScene.Item", {
-        superClass: "tm.display.CanvasElement",
+        superClass: "tm.ui.ListViewItem",
 
-        init: function(width, height, score, sceneParam) {
+        init: function(width, height, score) {
             var self = this;
-            this.superInit();
+            console.log(score);
+            this.superInit(width, height);
             this.fromJSON({
-                width: width,
-                height: height,
-                interactive: true,
-                checkHierarchy: true,
-                boundingType: "rect",
                 children: {
                     rank: {
                         type: "tm.display.Label",
-                        init: [score.scoreRank, 32],
+                        init: ["?", 32],
                         fillStyle: "rgb(20, 20, 20)",
                         fontWeight: "bold",
                         x: -width * 0.5 + 40,
                         y: 0,
                     },
-                    circle: {
-                        type: "tm.display.RoundRectangleShape",
-                        init: {
-                            width: 60,
-                            height: 60,
-                            fillStyle: "black",
-                            strokeStyle: "transparent",
-                        },
-                        x: -width * 0.5 + 40 + 80,
-                        y: 0,
-                    },
                     icon: {
                         type: "tm.display.Sprite",
-                        init: [tm.google.LeaderboardScene.Item.DEFAULT_TEXTURE, 60, 60],
+                        init: [ITEM_DEFAULT_TEXTURE, 60, 60],
                         x: -width * 0.5 + 40 + 80,
                         y: 0,
                     },
                     playerName: {
                         type: "tm.display.Label",
-                        init: [score.player.displayName, 24],
+                        init: ["loading...", 24],
                         fillStyle: "rgb(20, 20, 20)",
                         align: "left",
                         fontWeight: "bold",
@@ -482,31 +508,102 @@
                     },
                     score: {
                         type: "tm.display.Label",
-                        init: [score.formattedScore, 18],
+                        init: ["loading...", 18],
                         fillStyle: "rgb(120, 120, 120)",
                         align: "left",
+                        fontFamily: "monospace",
                         x: -width * 0.5 + 40 + 80 + 50,
                         y: 16,
                     },
                 },
             });
 
-            if (score.player.avatarImageUrl) {
-                tm.asset.Texture(score.player.avatarImageUrl)
+            this.setItem(score);
+        },
+
+        setItem: function(item) {
+            var self = this;
+            self.rank.text = item.scoreRank;
+            self.playerName.text = item.player.displayName;
+            self.score.text = item.formattedScore;
+            if (item.player.avatarImageUrl) {
+                tm.asset.Texture(item.player.avatarImageUrl)
                     .on("load", function() {
                         self.icon.image = this;
                     });
             }
+            return tm.ui.ListViewItem.prototype.setItem.call(self, item);
+        }
+    });
 
-            // this.on("pointingstart", function(e) {
-            //     this.initialY = e.pointing.y;
-            // });
-            // this.on("pointingend", function(e) {
-            //     if (Math.abs(this.initialY - e.pointing.y) < 10) {
-            //         e.app.pushScene(tm.google.RankingScene(leaderboard, sceneParam));
-            //     }
-            // });
+    tm.define("tm.google.LeaderboardScene.RadioButton", {
+        superClass: "tm.ui.FlatButton",
+
+        init: function(param) {
+            this.superInit(param);
+            this.param = param;
+            this._selected = false;
+
+            var self = this;
+
+            this.on("push", function() {
+                if (this.selected) return;
+
+                if (this.parent instanceof tm.google.LeaderboardScene.RadioButtonGroup) {
+                    this.parent.flare("change");
+                    this.parent.children.filter(function(c) {
+                        return c instanceof tm.google.LeaderboardScene.RadioButton;
+                    }).forEach(function(b) {
+                        b.selected = b === self;
+                    });
+                }
+            });
         },
     });
 
+    tm.google.LeaderboardScene.RadioButton.prototype.accessor("selected", {
+        set: function(v) {
+            this._selected = v;
+            if (v) {
+                this.fillStyle = this.param.foregroundColor;
+                this.strokeStyle = this.param.foregroundColor;
+                this.label.fillStyle = this.param.backgroundColor;
+            } else {
+                this.fillStyle = this.param.backgroundColor;
+                this.strokeStyle = this.param.foregroundColor;
+                this.label.fillStyle = this.param.foregroundColor;
+            }
+        },
+        get: function() {
+            return this._selected;
+        },
+    });
+
+    tm.define("tm.google.LeaderboardScene.RadioButtonGroup", {
+        superClass: "tm.display.CanvasElement",
+
+        init: function() {
+            this.superInit();
+        },
+
+        setSelected: function(index) {
+            this.children.forEach(function(c, i) {
+                c.selected = i === index;
+            });
+        },
+    });
+
+    tm.google.LeaderboardScene.RadioButtonGroup.prototype.accessor("selected", {
+        set: function(v) {
+            this.setSelected(v);
+        },
+        get: function() {
+            for (var i = 0, end = this.children.length; i < end; i++) {
+                if (this.children[i].selected) {
+                    return i;
+                }
+            }
+            return -1;
+        },
+    });
 })();
